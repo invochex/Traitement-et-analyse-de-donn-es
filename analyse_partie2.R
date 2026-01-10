@@ -12,10 +12,6 @@ library(scales)
 # Chargement des données
 data <- read.csv("marriage_data_india.csv", stringsAsFactors = TRUE)
 
-# Renommer les colonnes avec tirets pour éviter les erreurs
-names(data)[names(data) == "Inter-Caste"] <- "Inter_Caste"
-names(data)[names(data) == "Inter-Religion"] <- "Inter_Religion"
-
 # Préparation des données
 data$Education_Level <- factor(data$Education_Level, 
                                levels = c("School", "Graduate", "Postgraduate", "PhD"),
