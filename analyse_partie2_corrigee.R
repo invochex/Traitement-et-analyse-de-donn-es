@@ -1,5 +1,5 @@
 # =============================================================================
-# PARTIE II : Analyse comparative des mariages en Inde
+# PARTIE II : Analyse comparative des mariages en Inde - VERSION CORRIGÉE
 # Les différences entre mariages arrangés et mariages d'amour
 # =============================================================================
 
@@ -108,21 +108,35 @@ g3 <- ggplot(satisfaction_urban,
 # GRAPHIQUE 4 : Impact des facteurs culturels sur la satisfaction
 # =============================================================================
 
-# Calcul des taux de satisfaction élevée pour différents facteurs
-factors_analysis <- data %>%
-  group_by(Marriage_Type) %>%
-  summarise(
-    Approbation_parentale = mean(Marital_Satisfaction == "High" & Parental_Approval == "Yes") * 100,
-    Sans_approbation = mean(Marital_Satisfaction == "High" & Parental_Approval == "No") * 100,
-    Avec_dot = mean(Marital_Satisfaction == "High" & Dowry_Exchanged == "Yes") * 100,
-    Sans_dot = mean(Marital_Satisfaction == "High" & Dowry_Exchanged == "No") * 100,
-    Inter_caste = mean(Marital_Satisfaction == "High" & data[["Inter-Caste"]] == "Yes", na.rm = TRUE) * 100,
-    Même_caste = mean(Marital_Satisfaction == "High" & data[["Inter-Caste"]] == "No", na.rm = TRUE) * 100,
-    .groups = "drop"
-  ) %>%
-  pivot_longer(cols = -Marriage_Type, names_to = "Facteur", values_to = "Satisfaction_elevee")
+# Création d'un dataframe pour l'analyse des facteurs
+factors_data <- data.frame(
+  Marriage_Type = character(),
+  Facteur = character(),
+  Satisfaction_elevee = numeric(),
+  stringsAsFactors = FALSE
+)
 
-g4 <- ggplot(factors_analysis, 
+# Calcul pour chaque type de mariage
+for (marriage_type in c("Arranged", "Love")) {
+  subset_data <- data[data$Marriage_Type == marriage_type, ]
+  
+  factors_data <- rbind(factors_data, data.frame(
+    Marriage_Type = marriage_type,
+    Facteur = c("Approbation parentale", "Sans approbation", "Avec dot", 
+                "Sans dot", "Inter-caste", "Même caste"),
+    Satisfaction_elevee = c(
+      mean(subset_data$Marital_Satisfaction == "High" & subset_data$Parental_Approval == "Yes", na.rm = TRUE) * 100,
+      mean(subset_data$Marital_Satisfaction == "High" & subset_data$Parental_Approval == "No", na.rm = TRUE) * 100,
+      mean(subset_data$Marital_Satisfaction == "High" & subset_data$Dowry_Exchanged == "Yes", na.rm = TRUE) * 100,
+      mean(subset_data$Marital_Satisfaction == "High" & subset_data$Dowry_Exchanged == "No", na.rm = TRUE) * 100,
+      mean(subset_data$Marital_Satisfaction == "High" & subset_data[["Inter-Caste"]] == "Yes", na.rm = TRUE) * 100,
+      mean(subset_data$Marital_Satisfaction == "High" & subset_data[["Inter-Caste"]] == "No", na.rm = TRUE) * 100
+    ),
+    stringsAsFactors = FALSE
+  ))
+}
+
+g4 <- ggplot(factors_data, 
              aes(x = reorder(Facteur, Satisfaction_elevee), 
                  y = Satisfaction_elevee, 
                  fill = Marriage_Type)) +
@@ -130,14 +144,6 @@ g4 <- ggplot(factors_analysis,
   coord_flip() +
   scale_fill_manual(values = c("Arranged" = "#9C27B0", "Love" = "#FF5722"),
                     labels = c("Arrangé", "Amour")) +
-  scale_x_discrete(labels = c(
-    "Approbation_parentale" = "Approbation parentale",
-    "Sans_approbation" = "Sans approbation",
-    "Avec_dot" = "Avec dot",
-    "Sans_dot" = "Sans dot",
-    "Inter_caste" = "Inter-caste",
-    "Même_caste" = "Même caste"
-  )) +
   labs(title = "Impact des facteurs culturels sur la satisfaction élevée",
        x = "", y = "Pourcentage de satisfaction élevée (%)",
        fill = "Type de mariage") +
@@ -268,6 +274,8 @@ png("graphique_satisfaction_revenu_religion.png", width = 1200, height = 800, re
 print(g6)
 dev.off()
 
+cat("\n✓ Tous les graphiques ont été sauvegardés avec succès!\n")
+
 # =============================================================================
 # ANALYSES STATISTIQUES
 # =============================================================================
@@ -281,7 +289,8 @@ cat("1. SATISFACTION SELON LE TYPE DE MARIAGE\n")
 cat("----------------------------------------\n")
 table_satisfaction <- table(data$Marriage_Type, data$Marital_Satisfaction)
 print(table_satisfaction)
-print(prop.table(table_satisfaction, 1) * 100)
+cat("\nPourcentages par type de mariage :\n")
+print(round(prop.table(table_satisfaction, 1) * 100, 1))
 chi_satisfaction <- chisq.test(table_satisfaction)
 cat("\nTest du Chi-deux : p-value =", chi_satisfaction$p.value, "\n")
 if (chi_satisfaction$p.value > 0.05) {
@@ -340,7 +349,7 @@ income_divorce <- data %>%
   filter(Divorce_Status == "Yes")
 print(income_divorce)
 
-# 6. Facteurs les plus importants (régression logistique)
+# 6. Régression logistique - Facteurs prédictifs de la satisfaction élevée
 cat("\n\n6. RÉGRESSION LOGISTIQUE - FACTEURS PRÉDICTIFS DE LA SATISFACTION ÉLEVÉE\n")
 cat("-------------------------------------------------------------------------\n")
 
@@ -359,11 +368,15 @@ print(summary_model)
 # Extraction des coefficients significatifs
 coef_df <- as.data.frame(summary_model$coefficients)
 coef_df$Variable <- rownames(coef_df)
-coef_df <- coef_df[coef_df$`Pr(>|z|)` < 0.05, ]
+coef_df <- coef_df[coef_df$`Pr(>|z|)` < 0.05 & coef_df$Variable != "(Intercept)", ]
 coef_df <- coef_df[order(abs(coef_df$Estimate), decreasing = TRUE), ]
 
 cat("\n\nFACTEURS LES PLUS SIGNIFICATIFS (p < 0.05) :\n")
-print(coef_df[, c("Variable", "Estimate", "Pr(>|z|)")])
+if (nrow(coef_df) > 0) {
+  print(coef_df[, c("Variable", "Estimate", "Pr(>|z|)")])
+} else {
+  cat("Aucun facteur significatif détecté au seuil de 5%\n")
+}
 
 # 7. Régression logistique pour le divorce
 cat("\n\n7. RÉGRESSION LOGISTIQUE - FACTEURS PRÉDICTIFS DU DIVORCE\n")
@@ -380,11 +393,15 @@ print(summary_divorce)
 
 coef_divorce <- as.data.frame(summary_divorce$coefficients)
 coef_divorce$Variable <- rownames(coef_divorce)
-coef_divorce <- coef_divorce[coef_divorce$`Pr(>|z|)` < 0.05, ]
+coef_divorce <- coef_divorce[coef_divorce$`Pr(>|z|)` < 0.05 & coef_divorce$Variable != "(Intercept)", ]
 coef_divorce <- coef_divorce[order(abs(coef_divorce$Estimate), decreasing = TRUE), ]
 
 cat("\n\nFACTEURS LES PLUS SIGNIFICATIFS POUR LE DIVORCE (p < 0.05) :\n")
-print(coef_divorce[, c("Variable", "Estimate", "Pr(>|z|)")])
+if (nrow(coef_divorce) > 0) {
+  print(coef_divorce[, c("Variable", "Estimate", "Pr(>|z|)")])
+} else {
+  cat("Aucun facteur significatif détecté au seuil de 5%\n")
+}
 
 # =============================================================================
 # SYNTHÈSE DES RÉSULTATS
@@ -415,4 +432,6 @@ cat("  - Approbation parentale : légère influence positive\n")
 cat("  - Échange de dot : impact variable\n")
 cat("  - Mariages inter-castes : pas de désavantage significatif\n\n")
 
-cat("Graphiques sauvegardés avec succès!\n")
+cat("========================================\n")
+cat("FIN DE L'ANALYSE\n")
+cat("========================================\n")
