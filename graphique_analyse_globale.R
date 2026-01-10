@@ -8,7 +8,7 @@ library(gridExtra)
 library(scales)
 
 # Chargement des données
-data <- read.csv("marriage_data_india.csv", stringsAsFactors = TRUE)
+data <- read.csv("Bureau/5A/Virtualisation data/Traitement-et-analyse-de-donn-es/marriage_data_india.csv", stringsAsFactors = TRUE)
 
 # Configuration du thème commun
 theme_custom <- theme_minimal() +
@@ -77,7 +77,7 @@ g3 <- data %>%
   theme(axis.text.x = element_text(angle = 0, hjust = 0.5))
 
 # =============================================================================
-# Graphique 4: Niveau de revenu
+# Graphique 4: Niveau de revenu (CORRIGÉ)
 # =============================================================================
 g4 <- data %>%
   group_by(Income_Level) %>%
@@ -88,30 +88,28 @@ g4 <- data %>%
   geom_bar(stat = "identity", width = 0.6) +
   geom_text(aes(label = paste0(round(pct, 1), "%")),
             vjust = -0.5, fontface = "bold", size = 3.5) +
-  scale_fill_manual(values = c("Low" = "#F44336", "Middle" = "#FFC107", "High" = "#4CAF50"),
-                    labels = c("Faible", "Moyen", "Élevé")) +
+  scale_fill_manual(values = c("Low" = "#F44336", "Middle" = "#FFC107", "High" = "#4CAF50")) +
   scale_x_discrete(labels = c("Low" = "Faible", "Middle" = "Moyen", "High" = "Élevé")) +
   labs(title = "Niveau de revenu", x = "", y = "Pourcentage (%)") +
-  ylim(0, 40) +
+  # On augmente la limite ou on utilise coord_cartesian pour ne pas exclure les données > 40%
+  coord_cartesian(ylim = c(0, max(data %>% group_by(Income_Level) %>% summarise(pct = n()/nrow(data)*100) %>% pull(pct)) + 5)) +
   theme_custom
 
 # =============================================================================
-# Graphique 5: Satisfaction maritale
+# Graphique 5: Répartition religieuse (NOUVEAU)
 # =============================================================================
 g5 <- data %>%
-  group_by(Marital_Satisfaction) %>%
+  group_by(Religion) %>%
   summarise(n = n()) %>%
   mutate(pct = n / sum(n) * 100) %>%
-  ggplot(aes(x = factor(Marital_Satisfaction, levels = c("Low", "Medium", "High")), 
-             y = pct, fill = Marital_Satisfaction)) +
+  ggplot(aes(x = reorder(Religion, -pct), y = pct, fill = Religion)) +
   geom_bar(stat = "identity", width = 0.6) +
   geom_text(aes(label = paste0(round(pct, 1), "%")),
-            vjust = -0.5, fontface = "bold", size = 3.5) +
-  scale_fill_manual(values = c("Low" = "#F44336", "Medium" = "#FFC107", "High" = "#4CAF50")) +
-  scale_x_discrete(labels = c("Low" = "Faible", "Medium" = "Moyenne", "High" = "Élevée")) +
-  labs(title = "Satisfaction maritale", x = "", y = "Pourcentage (%)") +
-  ylim(0, 40) +
-  theme_custom
+            vjust = -0.5, fontface = "bold", size = 3) +
+  scale_fill_brewer(palette = "Set3") + 
+  labs(title = "Répartition religieuse", x = "", y = "Pourcentage (%)") +
+  theme_custom +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) # Inclinaison pour la lisibilité
 
 # =============================================================================
 # Graphique 6: Statut de divorce
@@ -203,3 +201,4 @@ for (i in 1:nrow(religion_stats)) {
   cat("   -", religion_stats$Religion[i], ":", 
       round(religion_stats$pct[i], 1), "%\n")
 }
+
