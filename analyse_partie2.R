@@ -12,6 +12,10 @@ library(scales)
 # Chargement des données
 data <- read.csv("marriage_data_india.csv", stringsAsFactors = TRUE)
 
+# Renommer les colonnes avec tirets pour éviter les erreurs
+names(data)[names(data) == "Inter-Caste"] <- "Inter_Caste"
+names(data)[names(data) == "Inter-Religion"] <- "Inter_Religion"
+
 # Préparation des données
 data$Education_Level <- factor(data$Education_Level, 
                                levels = c("School", "Graduate", "Postgraduate", "PhD"),
@@ -116,8 +120,8 @@ factors_analysis <- data %>%
     Sans_approbation = mean(Marital_Satisfaction == "High" & Parental_Approval == "No") * 100,
     Avec_dot = mean(Marital_Satisfaction == "High" & Dowry_Exchanged == "Yes") * 100,
     Sans_dot = mean(Marital_Satisfaction == "High" & Dowry_Exchanged == "No") * 100,
-    Inter_caste = mean(Marital_Satisfaction == "High" & data[["Inter-Caste"]] == "Yes", na.rm = TRUE) * 100,
-    Même_caste = mean(Marital_Satisfaction == "High" & data[["Inter-Caste"]] == "No", na.rm = TRUE) * 100,
+    Inter_caste = mean(Marital_Satisfaction == "High" & Inter_Caste == "Yes", na.rm = TRUE) * 100,
+    Meme_caste = mean(Marital_Satisfaction == "High" & Inter_Caste == "No", na.rm = TRUE) * 100,
     .groups = "drop"
   ) %>%
   pivot_longer(cols = -Marriage_Type, names_to = "Facteur", values_to = "Satisfaction_elevee")
@@ -136,7 +140,7 @@ g4 <- ggplot(factors_analysis,
     "Avec_dot" = "Avec dot",
     "Sans_dot" = "Sans dot",
     "Inter_caste" = "Inter-caste",
-    "Même_caste" = "Même caste"
+    "Meme_caste" = "Même caste"
   )) +
   labs(title = "Impact des facteurs culturels sur la satisfaction élevée",
        x = "", y = "Pourcentage de satisfaction élevée (%)",
@@ -160,8 +164,8 @@ data_numeric <- data %>%
     Dot = ifelse(Dowry_Exchanged == "Yes", 1, 0),
     Education_score = as.numeric(Education_Level),
     Income_score = as.numeric(Income_Level),
-    Inter_caste_bin = ifelse(.data[["Inter-Caste"]] == "Yes", 1, 0),
-    Inter_religion_bin = ifelse(.data[["Inter-Religion"]] == "Yes", 1, 0)
+    Inter_caste_bin = ifelse(Inter_Caste == "Yes", 1, 0),
+    Inter_religion_bin = ifelse(Inter_Religion == "Yes", 1, 0)
   )
 
 # Sélection des variables pour la corrélation
