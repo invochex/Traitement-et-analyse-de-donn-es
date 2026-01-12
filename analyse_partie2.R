@@ -30,23 +30,23 @@ satisfaction_religion <- data %>%
   summarise(n = n(), .groups = "drop") %>%
   group_by(Marriage_Type, Religion) %>%
   mutate(total = sum(n),
-         percentage = n / total * 100) %>%
-  filter(Marital_Satisfaction == "High")
+         percentage = n / total * 100)
 
 g1 <- ggplot(satisfaction_religion, 
-             aes(x = Religion, y = percentage, fill = Marriage_Type)) +
-  geom_bar(stat = "identity", position = position_dodge(width = 0.8), width = 0.7) +
-  geom_text(aes(label = paste0(round(percentage, 1), "%")),
-            position = position_dodge(width = 0.8),
-            vjust = -0.5, size = 3) +
-  scale_fill_manual(values = c("Arranged" = "#9C27B0", "Love" = "#FF5722"),
-                    labels = c("Arrangé", "Amour")) +
-  labs(title = "Satisfaction élevée par type de mariage et religion",
-       x = "Religion", y = "Pourcentage de satisfaction élevée (%)",
-       fill = "Type de mariage") +
+             aes(x = Religion, y = percentage, fill = Marital_Satisfaction)) +
+  geom_bar(stat = "identity", position = "dodge", width = 0.7) +
+  facet_wrap(~ Marriage_Type, labeller = labeller(Marriage_Type = 
+                c("Arranged" = "Mariages arrangés", "Love" = "Mariages d'amour"))) +
+  scale_fill_manual(values = c("Low" = "#F44336", "Medium" = "#FFC107", "High" = "#4CAF50"),
+                    labels = c("Faible", "Moyenne", "Élevée")) +
+  labs(title = "Distribution de la satisfaction maritale par type de mariage et religion",
+       x = "Religion", y = "Pourcentage (%)",
+       fill = "Satisfaction") +
   theme_minimal() +
   theme(legend.position = "bottom",
-        plot.title = element_text(face = "bold", hjust = 0.5))
+        plot.title = element_text(face = "bold", hjust = 0.5),
+        strip.text = element_text(face = "bold", size = 10),
+        axis.text.x = element_text(angle = 45, hjust = 1))
 
 # =============================================================================
 # GRAPHIQUE 2 : Taux de divorce par type de mariage et niveau de revenu
@@ -108,42 +108,46 @@ g3 <- ggplot(satisfaction_urban,
 # GRAPHIQUE 4 : Impact des facteurs culturels sur la satisfaction
 # =============================================================================
 
-# Calcul des taux de satisfaction élevée pour différents facteurs
-factors_analysis <- data %>%
-  group_by(Marriage_Type) %>%
-  summarise(
-    Approbation_parentale = mean(Marital_Satisfaction == "High" & Parental_Approval == "Yes") * 100,
-    Sans_approbation = mean(Marital_Satisfaction == "High" & Parental_Approval == "No") * 100,
-    Avec_dot = mean(Marital_Satisfaction == "High" & Dowry_Exchanged == "Yes") * 100,
-    Sans_dot = mean(Marital_Satisfaction == "High" & Dowry_Exchanged == "No") * 100,
-    Inter_caste = mean(Marital_Satisfaction == "High" & Inter_Caste == "Yes", na.rm = TRUE) * 100,
-    Meme_caste = mean(Marital_Satisfaction == "High" & Inter_Caste == "No", na.rm = TRUE) * 100,
-    .groups = "drop"
-  ) %>%
-  pivot_longer(cols = -Marriage_Type, names_to = "Facteur", values_to = "Satisfaction_elevee")
+# Préparation des données avec tous les niveaux de satisfaction
+factors_data <- data %>%
+  select(Marriage_Type, Marital_Satisfaction, Parental_Approval, Dowry_Exchanged, Inter_Caste) %>%
+  mutate(
+    Approbation = case_when(
+      Parental_Approval == "Yes" ~ "Approbation parentale",
+      Parental_Approval == "No" ~ "Sans approbation",
+      TRUE ~ "Partielle"
+    ),
+    Dot = ifelse(Dowry_Exchanged == "Yes", "Avec dot", "Sans dot"),
+    Caste = ifelse(Inter_Caste == "Yes", "Inter-caste", "Même caste")
+  )
 
-g4 <- ggplot(factors_analysis, 
-             aes(x = reorder(Facteur, Satisfaction_elevee), 
-                 y = Satisfaction_elevee, 
-                 fill = Marriage_Type)) +
-  geom_bar(stat = "identity", position = position_dodge(width = 0.8), width = 0.7) +
+factors_long <- bind_rows(
+  factors_data %>% select(Marriage_Type, Marital_Satisfaction, Facteur = Approbation) %>% filter(Facteur != "Partielle"),
+  factors_data %>% select(Marriage_Type, Marital_Satisfaction, Facteur = Dot),
+  factors_data %>% select(Marriage_Type, Marital_Satisfaction, Facteur = Caste) %>% filter(!is.na(Facteur))
+)
+
+factors_summary <- factors_long %>%
+  group_by(Marriage_Type, Facteur, Marital_Satisfaction) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  group_by(Marriage_Type, Facteur) %>%
+  mutate(percentage = n / sum(n) * 100)
+
+g4 <- ggplot(factors_summary, 
+             aes(x = Facteur, y = percentage, fill = Marital_Satisfaction)) +
+  geom_bar(stat = "identity", position = "dodge", width = 0.7) +
+  facet_wrap(~ Marriage_Type, labeller = labeller(Marriage_Type = 
+                c("Arranged" = "Mariages arrangés", "Love" = "Mariages d'amour"))) +
   coord_flip() +
-  scale_fill_manual(values = c("Arranged" = "#9C27B0", "Love" = "#FF5722"),
-                    labels = c("Arrangé", "Amour")) +
-  scale_x_discrete(labels = c(
-    "Approbation_parentale" = "Approbation parentale",
-    "Sans_approbation" = "Sans approbation",
-    "Avec_dot" = "Avec dot",
-    "Sans_dot" = "Sans dot",
-    "Inter_caste" = "Inter-caste",
-    "Meme_caste" = "Même caste"
-  )) +
-  labs(title = "Impact des facteurs culturels sur la satisfaction élevée",
-       x = "", y = "Pourcentage de satisfaction élevée (%)",
-       fill = "Type de mariage") +
+  scale_fill_manual(values = c("Low" = "#F44336", "Medium" = "#FFC107", "High" = "#4CAF50"),
+                    labels = c("Faible", "Moyenne", "Élevée")) +
+  labs(title = "Impact des facteurs culturels sur la satisfaction maritale",
+       x = "", y = "Pourcentage (%)",
+       fill = "Satisfaction") +
   theme_minimal() +
   theme(legend.position = "bottom",
-        plot.title = element_text(face = "bold", hjust = 0.5))
+        plot.title = element_text(face = "bold", hjust = 0.5),
+        strip.text = element_text(face = "bold", size = 10))
 
 # =============================================================================
 # GRAPHIQUE 5 : Analyse multifactorielle - Heatmap des corrélations
@@ -218,27 +222,30 @@ g5 <- ggplot(cor_data, aes(x = Var1, y = Var2, fill = Correlation)) +
         legend.position = "right")
 
 # =============================================================================
-# GRAPHIQUE 6 : Distribution de la satisfaction selon le revenu et la religion
+# GRAPHIQUE 6 : Distribution de la satisfaction selon le revenu et le type de mariage
 # =============================================================================
 
-satisfaction_income_religion <- data %>%
-  group_by(Income_Level, Religion, Marital_Satisfaction) %>%
+satisfaction_income <- data %>%
+  group_by(Income_Level, Marriage_Type, Marital_Satisfaction) %>%
   summarise(n = n(), .groups = "drop") %>%
-  group_by(Income_Level, Religion) %>%
-  mutate(percentage = n / sum(n) * 100) %>%
-  filter(Marital_Satisfaction == "High")
+  group_by(Income_Level, Marriage_Type) %>%
+  mutate(percentage = n / sum(n) * 100)
 
-g6 <- ggplot(satisfaction_income_religion, 
-             aes(x = Income_Level, y = percentage, fill = Religion)) +
-  geom_bar(stat = "identity", position = position_dodge(width = 0.8), width = 0.7) +
-  scale_fill_brewer(palette = "Set2") +
+g6 <- ggplot(satisfaction_income, 
+             aes(x = Income_Level, y = percentage, fill = Marital_Satisfaction)) +
+  geom_bar(stat = "identity", position = "dodge", width = 0.7) +
+  facet_wrap(~ Marriage_Type, labeller = labeller(Marriage_Type = 
+                c("Arranged" = "Mariages arrangés", "Love" = "Mariages d'amour"))) +
+  scale_fill_manual(values = c("Low" = "#F44336", "Medium" = "#FFC107", "High" = "#4CAF50"),
+                    labels = c("Faible", "Moyenne", "Élevée")) +
   scale_x_discrete(labels = c("Low" = "Faible", "Middle" = "Moyen", "High" = "Élevé")) +
-  labs(title = "Satisfaction élevée selon le revenu et la religion",
-       x = "Niveau de revenu", y = "Pourcentage de satisfaction élevée (%)",
-       fill = "Religion") +
+  labs(title = "Distribution de la satisfaction selon le niveau de revenu",
+       x = "Niveau de revenu", y = "Pourcentage (%)",
+       fill = "Satisfaction") +
   theme_minimal() +
   theme(legend.position = "bottom",
-        plot.title = element_text(face = "bold", hjust = 0.5))
+        plot.title = element_text(face = "bold", hjust = 0.5),
+        strip.text = element_text(face = "bold", size = 10))
 
 # =============================================================================
 # SAUVEGARDE DES GRAPHIQUES
@@ -264,7 +271,7 @@ png("graphique_correlation_facteurs.png", width = 1400, height = 1200, res = 150
 print(g5)
 dev.off()
 
-png("graphique_satisfaction_revenu_religion.png", width = 1200, height = 800, res = 150)
+png("graphique_satisfaction_revenu.png", width = 1200, height = 800, res = 150)
 print(g6)
 dev.off()
 
